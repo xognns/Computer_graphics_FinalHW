@@ -31,6 +31,7 @@ export class GravitySystem {
   }
 
   update(deltaSeconds: number, playerPosition: THREE.Vector3, input: InputManager) {
+    let gravityRestored = false;
     this.prompt = '';
 
     if (this.lowGravity) {
@@ -43,6 +44,7 @@ export class GravitySystem {
 
           if (this.repairProgress >= REPAIR_SECONDS) {
             this.activateGravityWindow();
+            gravityRestored = true;
           }
         }
       } else {
@@ -61,6 +63,7 @@ export class GravitySystem {
     }
 
     this.updateVisualState();
+    return gravityRestored;
   }
 
   getUiState(): GravityUiState {

@@ -136,9 +136,9 @@ canvas {
   left: 50%;
   max-width: min(70vw, 620px);
   transform: translate(-50%, -50%) scale(0.98);
-  padding: 10px 16px;
-  border: 1px solid rgba(142, 230, 255, 0.42);
-  background: rgba(3, 8, 16, 0.26);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #e8f7ff;
   font-size: clamp(18px, 2.45vw, 34px);
   font-weight: 800;
@@ -150,7 +150,7 @@ canvas {
   letter-spacing: 0;
   opacity: 0;
   pointer-events: none;
-  backdrop-filter: blur(7px);
+  backdrop-filter: none;
 }
 
 .mission-prompt-active {

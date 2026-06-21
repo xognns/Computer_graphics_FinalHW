@@ -25,6 +25,8 @@ type FloatingGIObject = {
   position: THREE.Vector3;
   linkedProbeIndex: number;
   phase: number;
+  debugMarker: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
+  markerReveal: number;
 };
 
 const GRID_X = 18;
@@ -45,6 +47,7 @@ export class DDGIManager {
 
   private readonly probes: DDGIProbe[] = [];
   private readonly floatingObjects: FloatingGIObject[] = [];
+  private readonly floatingRaycastTargets: THREE.Object3D[] = [];
   private readonly raycaster = new THREE.Raycaster();
   private readonly rayDirections = this.createRayDirections(RAYS_PER_PROBE);
   private readonly probeOrigin = new THREE.Vector3(
@@ -222,6 +225,10 @@ export class DDGIManager {
     });
   }
 
+  getRaycastTargets() {
+    return this.floatingRaycastTargets;
+  }
+
   updateFloatingObjectVisibility(
     sampleIrradiance: (position: THREE.Vector3) => THREE.Vector3,
     directLights: DirectLightSample[],
@@ -236,6 +243,11 @@ export class DDGIManager {
       const position = object.group.getWorldPosition(new THREE.Vector3());
       const indirect = sampleIrradiance(position);
       const direct = this.computeDirectReveal(position, directLights, occluders);
+      const flashlightDirect = this.computeDirectReveal(
+        position,
+        directLights.filter((light) => light.direction && light.spotCosine !== undefined),
+        occluders,
+      );
       const observerVisibility = brightnessDebug
         ? 1
         : this.canObserverSeeObject(
@@ -258,6 +270,7 @@ export class DDGIManager {
       );
 
       this.applyFloatingObjectLighting(object.group, lightColor, reveal);
+      this.updateFloatingProbeMarker(object, flashlightDirect.length() * observerVisibility);
       this.floatingVisibilityCursor = (this.floatingVisibilityCursor + 1) % this.floatingObjects.length;
     }
   }
@@ -270,11 +283,15 @@ export class DDGIManager {
           object.position.y + Math.sin(elapsedSeconds * 1.2 + object.phase) * 0.08,
           object.position.z,
         );
+        object.debugMarker.position.copy(object.group.position);
+        object.debugMarker.position.y += 0.42;
         object.group.rotation.y += 0.006;
         continue;
       }
 
       object.group.position.set(object.position.x, 0.2, object.position.z);
+      object.debugMarker.position.copy(object.group.position);
+      object.debugMarker.position.y += 0.42;
       object.group.rotation.x = 0;
       object.group.rotation.z = 0;
     }
@@ -510,13 +527,55 @@ export class DDGIManager {
       visualObject.rotation.set(placement.rotation.x, placement.rotation.y, placement.rotation.z);
       visualObject.scale.setScalar(placement.scale);
       this.group.add(visualObject);
+      this.floatingRaycastTargets.push(visualObject);
+
+      const debugMarker = this.createFloatingObjectProbeMarker();
+      debugMarker.position.copy(placement.position);
+      debugMarker.position.y += 0.42;
+      debugMarker.visible = this.debugVisible;
+      this.group.add(debugMarker);
+
       this.floatingObjects.push({
         group: visualObject,
         position: placement.position.clone(),
         linkedProbeIndex: this.findNearestProbeIndex(placement.position),
         phase: placement.phase,
+        debugMarker,
+        markerReveal: 0,
       });
     });
+  }
+
+  private updateFloatingProbeMarker(object: FloatingGIObject, flashlightIntensity: number) {
+    if (!this.debugVisible) {
+      object.markerReveal = 0;
+      object.debugMarker.visible = false;
+      return;
+    }
+
+    object.markerReveal = THREE.MathUtils.lerp(
+      object.markerReveal,
+      THREE.MathUtils.clamp(flashlightIntensity * 0.42, 0, 1),
+      0.45,
+    );
+
+    if (object.markerReveal < 0.035) {
+      object.debugMarker.visible = false;
+      return;
+    }
+
+    const probe = this.probes[object.linkedProbeIndex];
+    const color = this.evaluateSH(probe.sh, new THREE.Vector3(0, 1, 0));
+    const displayColor = new THREE.Color().setRGB(
+      THREE.MathUtils.clamp(color.x * 0.62 + 0.1, 0.12, 1),
+      THREE.MathUtils.clamp(color.y * 0.62 + 0.08, 0.1, 1),
+      THREE.MathUtils.clamp(color.z * 0.72 + 0.28, 0.32, 1),
+    );
+
+    object.debugMarker.visible = true;
+    object.debugMarker.material.color.copy(displayColor);
+    object.debugMarker.material.opacity = THREE.MathUtils.lerp(0.28, 0.96, object.markerReveal);
+    object.debugMarker.scale.setScalar(0.72 + object.markerReveal * 1.2);
   }
 
   private createFloatingObjectPlacements() {
@@ -711,9 +770,27 @@ export class DDGIManager {
         transparent: true,
         opacity: 0.92,
         depthWrite: false,
+        depthTest: false,
       }),
     );
     marker.name = 'DDGIProbeMarker';
+    marker.renderOrder = 20;
+    return marker;
+  }
+
+  private createFloatingObjectProbeMarker() {
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16, 12, 8),
+      new THREE.MeshBasicMaterial({
+        color: 0xc76bff,
+        transparent: true,
+        opacity: 0.96,
+        depthWrite: false,
+        depthTest: false,
+      }),
+    );
+    marker.name = 'FloatingObjectLinkedProbeMarker';
+    marker.renderOrder = 24;
     return marker;
   }
 

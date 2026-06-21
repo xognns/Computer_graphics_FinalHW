@@ -4,6 +4,9 @@ import { StationMap } from './StationMap';
 
 const PLAYER_RADIUS = 0.38;
 const PLAYER_SPEED = 5.4;
+const LOW_GRAVITY_SPEED_MULTIPLIER = 1.24;
+const LOW_GRAVITY_STEERING = 0.045;
+const LOW_GRAVITY_DAMPING = 0.985;
 const FLASHLIGHT_CONE_HALF_ANGLE = THREE.MathUtils.degToRad(10);
 const FLASHLIGHT_LIGHT_HALF_ANGLE = FLASHLIGHT_CONE_HALF_ANGLE;
 const FLASHLIGHT_RANGE = 76;
@@ -256,9 +259,9 @@ export class PlayerController {
     if (lowGravity) {
       const targetVelocity = movement
         .clone()
-        .multiplyScalar(PLAYER_SPEED * 1.24);
-      this.velocity.lerp(targetVelocity, 0.072);
-      this.velocity.multiplyScalar(Math.pow(0.94, deltaSeconds * 60));
+        .multiplyScalar(PLAYER_SPEED * LOW_GRAVITY_SPEED_MULTIPLIER);
+      this.velocity.lerp(targetVelocity, LOW_GRAVITY_STEERING);
+      this.velocity.multiplyScalar(Math.pow(LOW_GRAVITY_DAMPING, deltaSeconds * 60));
     } else {
       this.velocity.copy(movement).multiplyScalar(PLAYER_SPEED);
     }

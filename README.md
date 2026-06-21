@@ -59,7 +59,3 @@ The project is a static Vite app. It can be deployed to Vercel or GitHub Pages a
 ## Goal
 
 Repair 6 generators, avoid Lumen by manipulating direct and indirect light, and report power restoration at the final console.
-
-## Report
-
-The final report draft is `report.md`. Any image marked with `TODO: 캡처 필요` must be replaced with an actual screenshot from this game before submission.

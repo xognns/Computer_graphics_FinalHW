@@ -164,7 +164,10 @@ export class Game {
     this.gameStatus = objectiveStatus;
     this.handleObjectiveAnnouncements();
     this.handleGameStatusAnnouncements(previousGameStatus);
-    this.gravitySystem.update(deltaSeconds, this.player.position, this.input);
+    const gravityRestored = this.gravitySystem.update(deltaSeconds, this.player.position, this.input);
+    if (gravityRestored) {
+      this.enqueueMissionPrompt('Gravity restored');
+    }
     const floatingObjectSamples = this.ddgi.getFloatingObjectSamples();
 
     if (
@@ -186,7 +189,7 @@ export class Game {
     this.stationMap.updateLowGravityProps(this.gravitySystem.isLowGravity(), elapsed);
     this.ddgi.updateFloatingObjectMotion(this.gravitySystem.isLowGravity(), elapsed);
     const directLights = this.collectDirectLights();
-    this.ddgi.update(directLights, this.collectRaycastTargets());
+    this.ddgi.update(directLights, this.collectDdgiRaycastTargets());
     this.updateDirectLightDebug(directLights);
     this.objectives.updateGeneratorLightPrompts(
       this.collectFlashlightDirectLight(),
@@ -344,7 +347,7 @@ export class Game {
     }
 
     if (objectiveState.repairedGenerators === objectiveState.totalGenerators) {
-      this.enqueueMissionPrompt('Go to report power restoriation!');
+      this.enqueueMissionPrompt('Go to report power restoration!');
     }
 
     this.previousRepairedGenerators = objectiveState.repairedGenerators;
@@ -490,6 +493,13 @@ export class Game {
 
   private collectRaycastTargets() {
     return this.raycastTargets;
+  }
+
+  private collectDdgiRaycastTargets() {
+    return [
+      ...this.raycastTargets,
+      ...this.ddgi.getRaycastTargets(),
+    ];
   }
 
   private collectLightDebugRaycastTargets() {

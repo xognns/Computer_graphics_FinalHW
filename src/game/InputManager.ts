@@ -3,9 +3,12 @@ import * as THREE from 'three';
 export class InputManager {
   private readonly pressedKeys = new Set<string>();
   private readonly moveVector = new THREE.Vector2();
+  private readonly virtualMoveVector = new THREE.Vector2();
   private readonly pointerNdc = new THREE.Vector2();
   private throwRequested = false;
   private flashlightToggleRequested = false;
+  private virtualActionPressed = false;
+  private virtualRestartPressed = false;
   private ddgiDebugRequested = false;
   private directLightDebugRequested = false;
   private brightnessDebugRequested = false;
@@ -36,7 +39,7 @@ export class InputManager {
       Number(this.isPressed('KeyS') || this.isPressed('ArrowDown')) -
       Number(this.isPressed('KeyW') || this.isPressed('ArrowUp'));
 
-    this.moveVector.set(x, y);
+    this.moveVector.set(x + this.virtualMoveVector.x, y + this.virtualMoveVector.y);
 
     if (this.moveVector.lengthSq() > 1) {
       this.moveVector.normalize();
@@ -46,11 +49,11 @@ export class InputManager {
   }
 
   isActionPressed() {
-    return this.isPressed('KeyE');
+    return this.isPressed('KeyE') || this.virtualActionPressed;
   }
 
   isRestartPressed() {
-    return this.isPressed('KeyR');
+    return this.isPressed('KeyR') || this.virtualRestartPressed;
   }
 
   getPointerNdc() {
@@ -85,6 +88,29 @@ export class InputManager {
     const wasRequested = this.brightnessDebugRequested;
     this.brightnessDebugRequested = false;
     return wasRequested;
+  }
+
+  setVirtualMovement(x: number, y: number) {
+    this.virtualMoveVector.set(
+      THREE.MathUtils.clamp(x, -1, 1),
+      THREE.MathUtils.clamp(y, -1, 1),
+    );
+  }
+
+  setVirtualActionPressed(pressed: boolean) {
+    this.virtualActionPressed = pressed;
+  }
+
+  setVirtualRestartPressed(pressed: boolean) {
+    this.virtualRestartPressed = pressed;
+  }
+
+  requestThrow() {
+    this.throwRequested = true;
+  }
+
+  requestFlashlightToggle() {
+    this.flashlightToggleRequested = true;
   }
 
   private isPressed(code: string) {
@@ -126,6 +152,9 @@ export class InputManager {
 
   private readonly clear = () => {
     this.pressedKeys.clear();
+    this.virtualMoveVector.set(0, 0);
+    this.virtualActionPressed = false;
+    this.virtualRestartPressed = false;
   };
 
   private readonly handlePointerMove = (event: PointerEvent) => {
@@ -136,6 +165,8 @@ export class InputManager {
   };
 
   private readonly handlePointerDown = (event: PointerEvent) => {
+    this.handlePointerMove(event);
+
     if (event.button === 0) {
       this.flashlightToggleRequested = true;
     }

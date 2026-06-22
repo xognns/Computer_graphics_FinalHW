@@ -31,6 +31,8 @@ export class Game {
   private readonly hud: HTMLDivElement;
   private readonly missionPrompt: HTMLDivElement;
   private readonly itemSlots: HTMLDivElement;
+  private readonly touchControls: HTMLDivElement;
+  private readonly touchControlDisposers: Array<() => void> = [];
   private readonly aimPoint = new THREE.Vector3();
   private readonly visibilityRaycaster = new THREE.Raycaster();
   private readonly directLightDebugGroup = new THREE.Group();
@@ -74,6 +76,7 @@ export class Game {
     this.hud = this.createHud();
     this.missionPrompt = this.createMissionPrompt();
     this.itemSlots = this.createItemSlots();
+    this.touchControls = this.createTouchControls();
 
     this.setupScene();
     this.raycastTargets = [
@@ -101,6 +104,10 @@ export class Game {
     this.hud.remove();
     this.missionPrompt.remove();
     this.itemSlots.remove();
+    this.touchControls.remove();
+    for (const disposeTouchControl of this.touchControlDisposers) {
+      disposeTouchControl();
+    }
     window.clearTimeout(this.missionPromptTimeout);
     window.clearTimeout(this.neonSlotFlashTimeout);
   }
@@ -306,6 +313,105 @@ export class Game {
     `;
     this.app.appendChild(slots);
     return slots;
+  }
+
+  private createTouchControls() {
+    const controls = document.createElement('div');
+    controls.className = 'touch-controls';
+    controls.innerHTML = `
+      <div class="touch-dpad" aria-label="Movement controls">
+        <button class="touch-button touch-up" type="button" data-move="up" aria-label="Move up">U</button>
+        <button class="touch-button touch-left" type="button" data-move="left" aria-label="Move left">L</button>
+        <button class="touch-button touch-right" type="button" data-move="right" aria-label="Move right">R</button>
+        <button class="touch-button touch-down" type="button" data-move="down" aria-label="Move down">D</button>
+      </div>
+      <div class="touch-actions" aria-label="Action controls">
+        <button class="touch-button" type="button" data-action="use" aria-label="Use">E</button>
+        <button class="touch-button" type="button" data-action="flashlight" aria-label="Toggle flashlight">LIGHT</button>
+        <button class="touch-button" type="button" data-action="throw" aria-label="Throw neon">NEON</button>
+        <button class="touch-button" type="button" data-action="restart" aria-label="Restart">R</button>
+      </div>
+    `;
+    this.app.appendChild(controls);
+
+    const pressedDirections = new Set<string>();
+    const updateMovement = () => {
+      const x = Number(pressedDirections.has('right')) - Number(pressedDirections.has('left'));
+      const y = Number(pressedDirections.has('down')) - Number(pressedDirections.has('up'));
+      this.input.setVirtualMovement(x, y);
+    };
+
+    const bindPress = (
+      button: HTMLButtonElement,
+      onPress: () => void,
+      onRelease?: () => void,
+    ) => {
+      const releaseOnLostCapture = () => {
+        onRelease?.();
+      };
+      const press = (event: PointerEvent) => {
+        event.preventDefault();
+        button.setPointerCapture(event.pointerId);
+        onPress();
+      };
+      const release = (event: PointerEvent) => {
+        event.preventDefault();
+        if (button.hasPointerCapture(event.pointerId)) {
+          button.releasePointerCapture(event.pointerId);
+        }
+        onRelease?.();
+      };
+
+      button.addEventListener('pointerdown', press);
+      button.addEventListener('pointerup', release);
+      button.addEventListener('pointercancel', release);
+      button.addEventListener('lostpointercapture', releaseOnLostCapture);
+      this.touchControlDisposers.push(() => {
+        button.removeEventListener('pointerdown', press);
+        button.removeEventListener('pointerup', release);
+        button.removeEventListener('pointercancel', release);
+        button.removeEventListener('lostpointercapture', releaseOnLostCapture);
+      });
+    };
+
+    for (const button of controls.querySelectorAll<HTMLButtonElement>('[data-move]')) {
+      const direction = button.dataset.move;
+      if (!direction) continue;
+      bindPress(
+        button,
+        () => {
+          pressedDirections.add(direction);
+          updateMovement();
+        },
+        () => {
+          pressedDirections.delete(direction);
+          updateMovement();
+        },
+      );
+    }
+
+    for (const button of controls.querySelectorAll<HTMLButtonElement>('[data-action]')) {
+      const action = button.dataset.action;
+      if (action === 'use') {
+        bindPress(
+          button,
+          () => this.input.setVirtualActionPressed(true),
+          () => this.input.setVirtualActionPressed(false),
+        );
+      } else if (action === 'restart') {
+        bindPress(
+          button,
+          () => this.input.setVirtualRestartPressed(true),
+          () => this.input.setVirtualRestartPressed(false),
+        );
+      } else if (action === 'flashlight') {
+        bindPress(button, () => this.input.requestFlashlightToggle());
+      } else if (action === 'throw') {
+        bindPress(button, () => this.input.requestThrow());
+      }
+    }
+
+    return controls;
   }
 
   private updateItemSlots() {

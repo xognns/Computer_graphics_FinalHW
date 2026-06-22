@@ -9,6 +9,23 @@ npm install
 npm run dev
 ```
 
+The dev server listens on all network interfaces, so another device on the same
+Wi-Fi/LAN can open the game with:
+
+```text
+http://<this-computer-ip>:5173/
+```
+
+You can also run the explicit host script:
+
+```bash
+npm run dev:host
+```
+
+On Windows/WSL, use the Windows host IPv4 address from `ipconfig` on the other
+device. If the page does not open, allow Node.js through Windows Defender
+Firewall for private networks.
+
 ## Build
 
 ```bash
@@ -19,6 +36,18 @@ npm run build
 
 ```bash
 npm run preview
+```
+
+For testing the production build from another device:
+
+```bash
+npm run preview:host
+```
+
+Then open:
+
+```text
+http://<this-computer-ip>:4173/
 ```
 
 ## Visual Verification with VS Code Live Server
@@ -55,6 +84,8 @@ The project is a static Vite app. It can be deployed to Vercel or GitHub Pages a
 - `R`: Toggle direct/indirect ray debug while playing
 - `B`: Toggle bright map debug
 - `R`: Restart after victory or failure
+
+Touch devices show on-screen movement and action buttons automatically.
 
 ## Goal
 
